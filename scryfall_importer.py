@@ -36,6 +36,9 @@ list_of_cards = [
 for card in list_of_cards:
     card["foil"].capitalize()
     card["foil"] = bool(card["foil"])
+    card["collector_number"] = str(card["collector_number"])
+
+list_of_cards = pd.DataFrame.from_dict(data=list_of_cards)
 
 
 def validate_cards(list_of_cards):
@@ -46,19 +49,23 @@ def validate_cards(list_of_cards):
     with open(file=latest_file, mode="r") as file:
         df = pd.read_json(file)
     result = []
-    for card in list_of_cards:
-        if card["foil"]:
-            if df.name.isin([card["name"]]) and df.foil == True and df.set.isin([card["set"]]) and df.collector_number.isin([card["collector_number"]]):
-                result.append(True)
-            else:
-                result.append(False)
+
+    for index, card in list_of_cards.iterrows():
+        if card.foil:
+            card_result = df.loc[(df.name == card["name"]) & (df.foil == True) & (df.set == card["set"])]
+            final_result = card_result["collector_number"].item() == card.collector_number
+            if not final_result:
+                result.append(f"{list_of_cards.iloc[index, 0]} from {list_of_cards.iloc[index, 2]} was not found in our"
+                              f" records.")
         else:
             if df.loc[(df.name == card["name"]) & (df.nonfoil == True) & (df.set == card["set"])
-                      & (df.collector_number == card["collector_number"])]:
+                      & (df.collector_number.isin(card["collector_number"]))]:
                 result.append(True)
             else:
                 result.append(False)
-    return result
+    if len(result) == 0:
+        return True
+    else:
+        return False
 
 
-print(validate_cards(list_of_cards))
