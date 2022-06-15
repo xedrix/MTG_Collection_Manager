@@ -33,15 +33,19 @@ list_of_cards = [
         "collector_number": 78
     }
 ]
-for card in list_of_cards:
-    card["foil"].capitalize()
-    card["foil"] = bool(card["foil"])
-    card["collector_number"] = str(card["collector_number"])
-
-list_of_cards = pd.DataFrame.from_dict(data=list_of_cards)
 
 
-def validate_cards(list_of_cards):
+def clean_list(cards):
+    """cleans data by converting foil to boolean and collector_number to string, then returns list as dataframe."""
+    for card in cards:
+        card["foil"].capitalize()
+        card["foil"] = bool(card["foil"])
+        card["collector_number"] = str(card["collector_number"])
+    clean_list = pd.DataFrame.from_dict(data=cards)
+    return validate_cards(clean_list)
+
+
+def validate_cards(cards):
     """checks list of cards and finds row that contains same name, set, collector number and if the card can be foil
     or non-foil. Returns True or False for each card."""
     file_list = glob.glob("scryfall_bulk_imports/*")
@@ -50,13 +54,14 @@ def validate_cards(list_of_cards):
         df = pd.read_json(file)
     result = []
 
-    for index, card in list_of_cards.iterrows():
+    standardized_list = cards
+    for index, card in standardized_list.iterrows():
         if card.foil:
             card_result = df.loc[(df.name == card["name"]) & (df.foil == True) & (df.set == card["set"])]
             final_result = card_result["collector_number"].item() == card.collector_number
             if not final_result:
-                result.append(f"{list_of_cards.iloc[index, 0]} from {list_of_cards.iloc[index, 2]} was not found in our"
-                              f" records.")
+                result.append(f"{standardized_list.iloc[index, 0]} from {standardized_list.iloc[index, 2]}"
+                              f"was not found in our records.")
         else:
             if df.loc[(df.name == card["name"]) & (df.nonfoil == True) & (df.set == card["set"])
                       & (df.collector_number.isin(card["collector_number"]))]:
@@ -69,3 +74,4 @@ def validate_cards(list_of_cards):
         return False
 
 
+clean_list(list_of_cards)
