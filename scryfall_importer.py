@@ -10,12 +10,13 @@ SCRYFALL_ENDPOINT = "https://c2.scryfall.com/file/scryfall-bulk/default-cards/de
 def ingest_scryfall_bulk_data():
     """Queries Scryfall API for list of cards. Drops un-necessary columns and saves list as new JSON file."""
     df = pd.read_json(SCRYFALL_ENDPOINT)
-    slim_dataframe = df.loc[:, ["id", "name", "foil", "nonfoil", "set", "set_name", "collector_number", "digital"]]
-    temp_dict = slim_dataframe.to_dict("records")  # converts to dict for efficiency
-    digital_cards = [row for row in temp_dict if row["digital"] == False]
-
+    slim_dataframe = df.loc[df.digital == False, ["id", "name", "foil", "nonfoil", "set", "set_name",
+                                                  "collector_number", "digital", "released_at"]]
+    slim_dataframe["released_at"] = slim_dataframe.released_at.astype(str) # to avoid json conversion error
+    slim_dataframe.drop("digital", axis=1, inplace=True)
+    df_dict = slim_dataframe.to_dict(orient="records")
     with open(file=f"scryfall_bulk_imports/{dt.date.today()}_clean.json", mode="w", encoding="utf8") as f:
-        json.dump(digital_cards, f, ensure_ascii=True)
+        json.dump(df_dict, f, ensure_ascii=True)
 
 
 # example of cards for testing. Includes all fields required to compare with scryfall
@@ -42,7 +43,7 @@ def clean_list(cards):
         card["foil"] = bool(card["foil"])
         card["collector_number"] = str(card["collector_number"])
     clean_list = pd.DataFrame.from_dict(data=cards)
-    return validate_cards(clean_list)
+    return clean_list
 
 
 def validate_cards(cards):
@@ -52,9 +53,10 @@ def validate_cards(cards):
     latest_file = max(file_list, key=os.path.getctime)
     with open(file=latest_file, mode="r") as file:
         df = pd.read_json(file)
+
     result = []
 
-    standardized_list = cards
+    standardized_list = clean_list(cards)
     for index, card in standardized_list.iterrows():
         if card.foil:
             card_result = df.loc[(df.name == card["name"]) & (df.foil == True) & (df.set == card["set"])]
@@ -74,4 +76,9 @@ def validate_cards(cards):
         return False
 
 
-clean_list(list_of_cards)
+ingest_scryfall_bulk_data()
+"""if validate_cards(list_of_cards):
+    print("Validation was successful.")
+else:
+    print("Could not validate all cards. Please check your list and try again.")
+"""
