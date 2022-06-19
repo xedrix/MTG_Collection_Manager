@@ -1,18 +1,26 @@
-import json
-import glob
-import os
-import pandas as pd
 import datetime as dt
+import glob
+import json
+import os
+
+import pandas as pd
+
 
 SCRYFALL_ENDPOINT = "https://c2.scryfall.com/file/scryfall-bulk/default-cards/default-cards-20220521090423.json"
 
 
 def ingest_scryfall_bulk_data():
-    """Queries Scryfall API for list of cards. Drops un-necessary columns and saves list as new JSON file."""
+    """Queries Scryfall API for list of cards. Drops un-necessary columns, then selects data that shouldn't
+    already be there ("released_at") less than a week ago since this will run weekly and saves list as new JSON file."""
     df = pd.read_json(SCRYFALL_ENDPOINT)
     slim_dataframe = df.loc[df.digital == False, ["id", "name", "foil", "nonfoil", "set", "set_name",
                                                   "collector_number", "digital", "released_at"]]
-    slim_dataframe["released_at"] = slim_dataframe.released_at.astype(str) # to avoid json conversion error
+    slim_dataframe["released_at"] = pd.to_datetime(slim_dataframe["released_at"])
+    today = dt.date.today()
+    week = dt.timedelta(days=7)
+    last_week_date = today - week
+    slim_dataframe = slim_dataframe.loc[slim_dataframe.released_at > pd.to_datetime(last_week_date)]
+    slim_dataframe["released_at"] = slim_dataframe.released_at.astype(str)  # to avoid json conversion error
     slim_dataframe.drop("digital", axis=1, inplace=True)
     df_dict = slim_dataframe.to_dict(orient="records")
     with open(file=f"scryfall_bulk_imports/{dt.date.today()}_clean.json", mode="w", encoding="utf8") as f:
@@ -36,12 +44,19 @@ list_of_cards = [
 ]
 
 
-def clean_list(cards):
-    """cleans data by converting foil to boolean and collector_number to string, then returns list as dataframe."""
-    for card in cards:
-        card["foil"].capitalize()
-        card["foil"] = bool(card["foil"])
-        card["collector_number"] = str(card["collector_number"])
+def clean_list(cards, program="dict"):
+    """cleans data by standardizing list of cards. also includes program for way to standardize based on source.
+    returns list as dataframe."""
+    if program == "delver":
+        pass
+    elif program == "helvault":
+        pass
+    else:
+
+        for card in cards:
+            card["foil"].capitalize()
+            card["foil"] = bool(card["foil"])
+            card["collector_number"] = str(card["collector_number"])
     clean_list = pd.DataFrame.from_dict(data=cards)
     return clean_list
 
