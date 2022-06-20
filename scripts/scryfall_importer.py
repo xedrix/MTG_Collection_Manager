@@ -44,7 +44,7 @@ list_of_cards = [
 ]
 
 
-def clean_list(cards, program="dict"):
+def clean_list(cards: dict, program="dict"):
     """cleans data by standardizing list of cards. also includes program for way to standardize based on source.
     returns list as dataframe."""
     if program == "delver":
@@ -52,7 +52,6 @@ def clean_list(cards, program="dict"):
     elif program == "helvault":
         pass
     else:
-
         for card in cards:
             card["foil"].capitalize()
             card["foil"] = bool(card["foil"])
